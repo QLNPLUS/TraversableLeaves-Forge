@@ -119,6 +119,14 @@ public class TLConfig {
   public static final Set<ResourceLocation> TL_BLOCKS = new HashSet<>();
   public static final Set<ResourceLocation> TL_ENTITIES = new HashSet<>();
 
+  /**
+   * Registry-resolved views of TL_BLOCKS / TL_ENTITIES, used by the hot paths in
+   * ITraversableBlock#isTraversable and ITraversableEntity#canTraverse.
+   * Rebuilt by rebuildFastCaches() whenever TL_BLOCKS / TL_ENTITIES are repopulated.
+   */
+  public static volatile Set<Block> TL_BLOCKS_FAST = Set.of();
+  public static volatile Set<EntityType<?>> TL_ENTITIES_FAST = Set.of();
+
   private static final Set<String> BLOCKS_CACHE = new HashSet<>();
   private static final Set<String> ENTITIES_CACHE = new HashSet<>();
 
@@ -208,8 +216,36 @@ public class TLConfig {
       }
     });
     TL_ENTITIES.removeAll(toRemove);
+    rebuildFastCaches();
 
     if (configNeedsRepair) repairConfig();
+  }
+
+  /**
+   * Resolves TL_BLOCKS / TL_ENTITIES into their registry objects so that the hot paths can test
+   * membership directly, instead of performing a reverse registry lookup (object -> name) followed
+   * by a string keyed probe on every single call.
+   * Must be called after any (re)population of TL_BLOCKS / TL_ENTITIES.
+   */
+  public static void rebuildFastCaches() {
+    Set<Block> blocks = new HashSet<>();
+    for (ResourceLocation key : TL_BLOCKS)
+      if (ForgeRegistries.BLOCKS.containsKey(key)) {
+        Block block = ForgeRegistries.BLOCKS.getValue(key);
+        if (block != null)
+          blocks.add(block);
+      }
+
+    Set<EntityType<?>> entityTypes = new HashSet<>();
+    for (ResourceLocation key : TL_ENTITIES)
+      if (ForgeRegistries.ENTITY_TYPES.containsKey(key)) {
+        EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(key);
+        if (entityType != null)
+          entityTypes.add(entityType);
+      }
+
+    TL_BLOCKS_FAST = Set.copyOf(blocks);
+    TL_ENTITIES_FAST = Set.copyOf(entityTypes);
   }
 
   private static boolean getWhitelistBlacklist() {

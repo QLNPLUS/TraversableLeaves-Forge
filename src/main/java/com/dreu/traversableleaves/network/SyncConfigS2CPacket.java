@@ -28,6 +28,8 @@ public class SyncConfigS2CPacket {
     bounds = buf.readInt();
     for (int i = 0; i < bounds; i++)
       TL_ENTITIES.add(new ResourceLocation(buf.readCharSequence(buf.readInt(), StandardCharsets.UTF_8).toString()));
+
+    rebuildFastCaches();
   }
 
   public SyncConfigS2CPacket() {
